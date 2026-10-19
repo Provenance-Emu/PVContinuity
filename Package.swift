@@ -13,11 +13,11 @@ let package = Package(
         // CloudKit sync work. Continuity classifies every user-data file
         // through it so the two features can never disagree about what is
         // allowed off-device.
-        .package(path: "../PVSyncRules"),
+        .package(url: "https://github.com/Provenance-Emu/PVSyncRules.git", from: "1.0.0"),
         // The route registry lives on the app's existing HTTP server; this
         // package registers against it rather than defining a parallel
         // request/response type family and an adapter to translate between them.
-        .package(path: "../PVWebServer")
+        .package(url: "https://github.com/Provenance-Emu/PVWebServer.git", from: "1.0.0")
     ],
     targets: [
         .target(

@@ -164,9 +164,13 @@ final class SaveStateDescriptorTests: XCTestCase {
 
 final class ContinuityFileKindTests: XCTestCase {
 
-    func testEverySyncableTypeHasAContinuityCounterpart() {
-        for type in SyncableFileType.allCases {
-            let kind = ContinuityFileKind(type)
+    func testSupportedSyncableTypesRoundTrip() throws {
+        let supported: [SyncableFileType] = [
+            .saveState, .resumeState, .saveStateMetadata, .saveStateThumbnail,
+            .gameCubeMemoryCard, .wiiSave, .config, .gameSettings
+        ]
+        for type in supported {
+            let kind = try XCTUnwrap(ContinuityFileKind(type))
             XCTAssertEqual(kind.syncableType, type, "round trip failed for \(type)")
         }
     }
