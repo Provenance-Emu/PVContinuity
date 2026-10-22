@@ -25,6 +25,7 @@ public enum ContinuityTXTRecord {
         static let sharesLibrary = "lib"
         static let peerId = "pid"
         static let deviceType = "dt"
+        static let libraryEdits = "le"
     }
 
     /// TXT records are size-limited; four candidates covers a `.local` name
@@ -59,6 +60,7 @@ public enum ContinuityTXTRecord {
         // treat the empty string as a token.
         if !advertisement.token.isEmpty { txt[Key.token] = advertisement.token }
         if advertisement.sharesLibrary { txt[Key.sharesLibrary] = "1" }
+        if advertisement.supportsLibraryEdits { txt[Key.libraryEdits] = "1" }
         if let peerId = advertisement.peerId { txt[Key.peerId] = peerId }
         if let deviceType = advertisement.deviceType { txt[Key.deviceType] = deviceType }
         if let stem = advertisement.saveStateStem { txt[Key.stem] = stem }
@@ -107,7 +109,11 @@ public enum ContinuityTXTRecord {
             urlCandidates: urls,
             sharesLibrary: txt[Key.sharesLibrary] == "1",
             peerId: txt[Key.peerId],
-            deviceType: txt[Key.deviceType]
+            deviceType: txt[Key.deviceType],
+            libraryEditsVersion: txt[Key.libraryEdits].flatMap { raw in
+                guard let version = Int(raw), String(version) == raw else { return nil }
+                return version
+            }
         )
     }
 }

@@ -37,6 +37,11 @@ public struct ContinuityAdvertisement: Codable, Hashable, Sendable {
     /// Device type for the pill glyph: `ip` iPhone, `pd` iPad, `tv` Apple TV,
     /// `mc` Mac.
     public var deviceType: String?
+    /// Optional nearby metadata-edit protocol version, independent of ROM sharing.
+    public var libraryEditsVersion: Int?
+
+    /// Unknown versions remain discoverable but cannot exchange edits.
+    public var supportsLibraryEdits: Bool { libraryEditsVersion == ContinuityLibraryEdits.currentVersion }
 
     public init(
         payloadVersion: Int = ContinuityManifest.currentVersion,
@@ -47,7 +52,8 @@ public struct ContinuityAdvertisement: Codable, Hashable, Sendable {
         urlCandidates: [URL],
         sharesLibrary: Bool = false,
         peerId: String? = nil,
-        deviceType: String? = nil
+        deviceType: String? = nil,
+        libraryEditsVersion: Int? = nil
     ) {
         self.payloadVersion = payloadVersion
         self.sessionId = sessionId
@@ -58,6 +64,7 @@ public struct ContinuityAdvertisement: Codable, Hashable, Sendable {
         self.sharesLibrary = sharesLibrary
         self.peerId = peerId
         self.deviceType = deviceType
+        self.libraryEditsVersion = libraryEditsVersion
     }
 }
 
