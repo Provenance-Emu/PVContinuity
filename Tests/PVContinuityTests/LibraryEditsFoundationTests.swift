@@ -346,6 +346,88 @@ final class LibraryEditsGrantTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: url), corrupt)
     }
 
+    func testCollectedListingGrantCannotSurviveLaterDenial() async throws {
+        try await assertCollectedListingGrantCannotSurviveRevocation("deny")
+    }
+
+    func testCollectedListingGrantCannotSurviveLaterRemoval() async throws {
+        try await assertCollectedListingGrantCannotSurviveRevocation("remove")
+    }
+
+    func testCollectedListingGrantCannotSurviveLaterRemoveAll() async throws {
+        try await assertCollectedListingGrantCannotSurviveRevocation("removeAll")
+    }
+
+    private func assertCollectedListingGrantCannotSurviveRevocation(_ action: String) async throws {
+        let dir = try directory()
+        let peers = [peer(), peer("other")]
+        let trust = BarrierEditsTrustStore(peers: peers)
+        let url = dir.appendingPathComponent("edits.json")
+        let store = FileLibraryEditsGrantStore(fileURL: url, trustStore: trust)
+        for selected in peers { try await store.setGrant(.enabled, for: selected) }
+        await trust.pauseLookup(after: 1)
+        let pending = Task { try await store.allGrants() }
+        await trust.waitUntilLookupPaused()
+        // Dictionary iteration order is unspecified: revoke the entry actually collected.
+        let lookedUp = await trust.lookupIds()
+        let collectedId = try XCTUnwrap(lookedUp.first)
+        let collectedPeer = try XCTUnwrap(peers.first { $0.id == collectedId })
+        switch action {
+        case "deny": try await store.setGrant(.denied, for: collectedPeer)
+        case "remove": try await store.removeGrant(forPeerId: collectedId)
+        default: try await store.removeAll()
+        }
+        let committed = try Data(contentsOf: url)
+        await trust.resumeLookup()
+        let grants = try await pending.value
+        XCTAssertEqual(grants[collectedId], .denied)
+        if action == "removeAll" { XCTAssertFalse(grants.values.contains(.enabled)) }
+        let current = try await store.grant(forPeerId: collectedId)
+        let restarted = try await FileLibraryEditsGrantStore(fileURL: url, trustStore: trust).grant(forPeerId: collectedId)
+        XCTAssertEqual(current, .denied)
+        XCTAssertEqual(restarted, .denied)
+        XCTAssertEqual(try Data(contentsOf: url), committed)
+    }
+
+    func testDifferentPeerMutationDoesNotInvalidateSuspendedScalarRead() async throws {
+        let dir = try directory()
+        let selected = peer()
+        let other = peer("other")
+        let trust = BarrierEditsTrustStore(peers: [selected, other])
+        let store = FileLibraryEditsGrantStore(fileURL: dir.appendingPathComponent("edits.json"), trustStore: trust)
+        try await store.setGrant(.enabled, for: selected)
+        await trust.pauseNextLookup()
+        let pending = Task { try await store.grant(forPeerId: selected.id) }
+        await trust.waitUntilLookupPaused()
+        try await store.setGrant(.denied, for: other)
+        await trust.resumeLookup()
+        let grant = try await pending.value
+        XCTAssertEqual(grant, .enabled)
+    }
+
+    func testFailedDenialDoesNotInvalidateAlreadyCollectedListingGrant() async throws {
+        let dir = try directory()
+        let peers = [peer(), peer("other")]
+        let trust = BarrierEditsTrustStore(peers: peers)
+        let url = dir.appendingPathComponent("edits.json")
+        let store = FileLibraryEditsGrantStore(fileURL: url, trustStore: trust)
+        for selected in peers { try await store.setGrant(.enabled, for: selected) }
+        await trust.pauseLookup(after: 1)
+        let pending = Task { try await store.allGrants() }
+        await trust.waitUntilLookupPaused()
+        let lookedUp = await trust.lookupIds()
+        let collectedId = try XCTUnwrap(lookedUp.first)
+        let collectedPeer = try XCTUnwrap(peers.first { $0.id == collectedId })
+        let original = try Data(contentsOf: url)
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: url.path)
+        defer { try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: url.path) }
+        do { try await store.setGrant(.denied, for: collectedPeer); XCTFail("denial must fail") } catch {}
+        await trust.resumeLookup()
+        let grants = try await pending.value
+        XCTAssertEqual(grants[collectedId], .enabled)
+        XCTAssertEqual(try Data(contentsOf: url), original)
+    }
+
     func testFailedLoadInvalidatesEntireListingAlreadyAwaitingTrust() async throws {
         let dir = try directory()
         let first = peer()
@@ -396,6 +478,7 @@ private actor BarrierEditsTrustStore: ContinuityTrustStore {
     private var peers: [String: TrustedPeer]
     private var pauseNext = false
     private var lookupsBeforePause = 0
+    private var lookedUp: [String] = []
     private var paused: CheckedContinuation<Void, Never>?
     private var observer: CheckedContinuation<Void, Never>?
 
@@ -407,7 +490,10 @@ private actor BarrierEditsTrustStore: ContinuityTrustStore {
     func pauseLookup(after count: Int) {
         pauseNext = true
         lookupsBeforePause = count
+        lookedUp = []
     }
+
+    func lookupIds() -> [String] { lookedUp }
 
     func waitUntilLookupPaused() async {
         if paused != nil { return }
@@ -422,6 +508,7 @@ private actor BarrierEditsTrustStore: ContinuityTrustStore {
 
     func peer(withId id: String) async -> TrustedPeer? {
         let peer = peers[id]
+        if pauseNext { lookedUp.append(id) }
         if pauseNext && lookupsBeforePause > 0 {
             lookupsBeforePause -= 1
         } else if pauseNext {

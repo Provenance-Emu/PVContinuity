@@ -31,6 +31,8 @@ public actor FileLibraryEditsGrantStore: ContinuityLibraryEditsGrantStore {
     private var peerIntents: [String: UUID] = [:]
     private var clearIntent = UUID()
     private var storageRevision = UUID()
+    // Only listings span multiple independently validated peer decisions.
+    private var listingMutationRevision = UUID()
 
     public init(fileURL: URL, trustStore: any ContinuityTrustStore) {
         self.fileURL = fileURL
@@ -45,13 +47,16 @@ public actor FileLibraryEditsGrantStore: ContinuityLibraryEditsGrantStore {
     public func allGrants() async throws -> [String: ContinuityLibraryEditsGrant] {
         let entries = try load()
         let revision = storageRevision
+        let mutationRevision = listingMutationRevision
         var grants: [String: ContinuityLibraryEditsGrant] = [:]
         for (id, entry) in entries {
             grants[id] = try await effectiveGrant(entry, forPeerId: id, storageRevision: revision)
         }
-        // A failure while a later entry awaited trust invalidates earlier
-        // enabled results collected by this listing as well.
-        guard revision == storageRevision else { return entries.mapValues { _ in .denied } }
+        // Storage failures or committed mutations while a later entry awaited
+        // trust invalidate enabled results already collected by this listing.
+        guard revision == storageRevision, mutationRevision == listingMutationRevision else {
+            return entries.mapValues { _ in .denied }
+        }
         return grants
     }
 
@@ -126,6 +131,7 @@ public actor FileLibraryEditsGrantStore: ContinuityLibraryEditsGrantStore {
         let data = try encoder.encode(Document(grants: grants))
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: fileURL, options: .atomic)
+        listingMutationRevision = UUID()
     }
 
     private struct Document: Codable {
