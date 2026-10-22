@@ -17,6 +17,8 @@ public enum ContinuityLibraryEditsGrant: String, Codable, Sendable, CaseIterable
 public enum ContinuityLibraryEditsGrantError: Error, Equatable {
     /// Opt-in requires a matching ID and key in the current trust store.
     case peerNotTrusted
+    /// A later consent operation superseded this pending opt-in.
+    case operationSuperseded
     /// Unsupported or corrupt persisted consent must be resolved by the host.
     case invalidStoredData
 }

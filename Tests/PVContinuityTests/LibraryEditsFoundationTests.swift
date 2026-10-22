@@ -251,4 +251,192 @@ final class LibraryEditsGrantTests: XCTestCase {
         XCTAssertEqual(romUnchanged, .everything)
         XCTAssertEqual(trusted, peer())
     }
+
+    func testPendingOptInCannotOverwriteLaterDenial() async throws {
+        try await assertPendingOptInCannotOverwriteRevocation("deny")
+    }
+
+    func testPendingOptInCannotOverwriteLaterRemoval() async throws {
+        try await assertPendingOptInCannotOverwriteRevocation("remove")
+    }
+
+    func testPendingOptInCannotOverwriteLaterRemoveAll() async throws {
+        try await assertPendingOptInCannotOverwriteRevocation("removeAll")
+    }
+
+    private func assertPendingOptInCannotOverwriteRevocation(_ action: String) async throws {
+        let dir = try directory()
+        let selected = peer()
+        let trust = BarrierEditsTrustStore(peers: [selected])
+        let url = dir.appendingPathComponent("edits.json")
+        let store = FileLibraryEditsGrantStore(fileURL: url, trustStore: trust)
+        await trust.pauseNextLookup()
+        let pending = Task { try await store.setGrant(.enabled, for: selected) }
+        await trust.waitUntilLookupPaused()
+        switch action {
+        case "deny": try await store.setGrant(.denied, for: selected)
+        case "remove": try await store.removeGrant(forPeerId: selected.id)
+        default: try await store.removeAll()
+        }
+        let committed = try Data(contentsOf: url)
+        await trust.resumeLookup()
+        do { try await pending.value; XCTFail("superseded opt-in must not succeed") }
+        catch { XCTAssertEqual(error as? ContinuityLibraryEditsGrantError, .operationSuperseded) }
+        let grant = try await store.grant(forPeerId: selected.id)
+        let restarted = try await FileLibraryEditsGrantStore(fileURL: url, trustStore: trust).grant(forPeerId: selected.id)
+        XCTAssertEqual(grant, .denied)
+        XCTAssertEqual(restarted, .denied)
+        XCTAssertEqual(try Data(contentsOf: url), committed)
+    }
+
+    func testDifferentPeerDecisionDoesNotSupersedePendingOptIn() async throws {
+        let dir = try directory()
+        let selected = peer()
+        let other = peer("other")
+        let trust = BarrierEditsTrustStore(peers: [selected, other])
+        let store = FileLibraryEditsGrantStore(fileURL: dir.appendingPathComponent("edits.json"), trustStore: trust)
+        await trust.pauseNextLookup()
+        let pending = Task { try await store.setGrant(.enabled, for: selected) }
+        await trust.waitUntilLookupPaused()
+        try await store.setGrant(.denied, for: other)
+        await trust.resumeLookup()
+        try await pending.value
+        let grants = try await store.allGrants()
+        XCTAssertEqual(grants, [selected.id: .enabled, other.id: .denied])
+    }
+
+    func testUnreadableLoadInvalidatesReadAlreadyAwaitingTrust() async throws {
+        let dir = try directory()
+        let selected = peer()
+        let trust = BarrierEditsTrustStore(peers: [selected])
+        let url = dir.appendingPathComponent("edits.json")
+        let store = FileLibraryEditsGrantStore(fileURL: url, trustStore: trust)
+        try await store.setGrant(.enabled, for: selected)
+        await trust.pauseNextLookup()
+        let pending = Task { try await store.grant(forPeerId: selected.id) }
+        await trust.waitUntilLookupPaused()
+        try FileManager.default.removeItem(at: url)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+        do { _ = try await store.allGrants(); XCTFail("unreadable state must be reported") } catch {}
+        await trust.resumeLookup()
+        let grant = try await pending.value
+        XCTAssertEqual(grant, .denied)
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory))
+        XCTAssertTrue(isDirectory.boolValue)
+    }
+
+    func testReadRevalidatesDiskAfterTrustAwaitWithoutAnotherOperation() async throws {
+        let dir = try directory()
+        let selected = peer()
+        let trust = BarrierEditsTrustStore(peers: [selected])
+        let url = dir.appendingPathComponent("edits.json")
+        let store = FileLibraryEditsGrantStore(fileURL: url, trustStore: trust)
+        try await store.setGrant(.enabled, for: selected)
+        await trust.pauseNextLookup()
+        let pending = Task { try await store.grant(forPeerId: selected.id) }
+        await trust.waitUntilLookupPaused()
+        let corrupt = Data("corrupt evidence".utf8)
+        try corrupt.write(to: url)
+        await trust.resumeLookup()
+        do {
+            let grant = try await pending.value
+            XCTAssertEqual(grant, .denied)
+        } catch {} // A visible storage error also fails closed.
+        XCTAssertEqual(try Data(contentsOf: url), corrupt)
+    }
+
+    func testFailedLoadInvalidatesEntireListingAlreadyAwaitingTrust() async throws {
+        let dir = try directory()
+        let first = peer()
+        let second = peer("other")
+        let trust = BarrierEditsTrustStore(peers: [first, second])
+        let url = dir.appendingPathComponent("edits.json")
+        let store = FileLibraryEditsGrantStore(fileURL: url, trustStore: trust)
+        try await store.setGrant(.enabled, for: first)
+        try await store.setGrant(.enabled, for: second)
+        await trust.pauseLookup(after: 1) // One enabled result has already been collected.
+        let pending = Task { try await store.allGrants() }
+        await trust.waitUntilLookupPaused()
+        let corrupt = Data("corrupt evidence".utf8)
+        try corrupt.write(to: url)
+        do { _ = try await store.allGrants(); XCTFail("invalid data must be reported") } catch {}
+        await trust.resumeLookup()
+        do {
+            let grants = try await pending.value
+            XCTAssertEqual(grants, [first.id: .denied, second.id: .denied])
+        } catch {} // Discarding the whole result with a visible error also fails closed.
+        XCTAssertEqual(try Data(contentsOf: url), corrupt)
+    }
+
+    func testFailedLoadInvalidatesReadAlreadyAwaitingTrust() async throws {
+        let dir = try directory()
+        let selected = peer()
+        let trust = BarrierEditsTrustStore(peers: [selected])
+        let url = dir.appendingPathComponent("edits.json")
+        let store = FileLibraryEditsGrantStore(fileURL: url, trustStore: trust)
+        try await store.setGrant(.enabled, for: selected)
+        await trust.pauseNextLookup()
+        let pending = Task { try await store.grant(forPeerId: selected.id) }
+        await trust.waitUntilLookupPaused()
+        let corrupt = Data("corrupt evidence".utf8)
+        try corrupt.write(to: url)
+        do { _ = try await store.allGrants(); XCTFail("invalid data must be reported") } catch {}
+        await trust.resumeLookup()
+        let grant = try await pending.value
+        XCTAssertEqual(grant, .denied)
+        XCTAssertEqual(try Data(contentsOf: url), corrupt)
+    }
+
+}
+
+
+/// A one-shot trust lookup barrier: tests control actor reentrancy without sleeps.
+private actor BarrierEditsTrustStore: ContinuityTrustStore {
+    private var peers: [String: TrustedPeer]
+    private var pauseNext = false
+    private var lookupsBeforePause = 0
+    private var paused: CheckedContinuation<Void, Never>?
+    private var observer: CheckedContinuation<Void, Never>?
+
+    init(peers: [TrustedPeer]) {
+        self.peers = Dictionary(uniqueKeysWithValues: peers.map { ($0.id, $0) })
+    }
+
+    func pauseNextLookup() { pauseLookup(after: 0) }
+    func pauseLookup(after count: Int) {
+        pauseNext = true
+        lookupsBeforePause = count
+    }
+
+    func waitUntilLookupPaused() async {
+        if paused != nil { return }
+        await withCheckedContinuation { observer = $0 }
+    }
+
+    func resumeLookup() {
+        let continuation = paused
+        paused = nil
+        continuation?.resume()
+    }
+
+    func peer(withId id: String) async -> TrustedPeer? {
+        let peer = peers[id]
+        if pauseNext && lookupsBeforePause > 0 {
+            lookupsBeforePause -= 1
+        } else if pauseNext {
+            pauseNext = false
+            await withCheckedContinuation { continuation in
+                paused = continuation
+                observer?.resume()
+                observer = nil
+            }
+        }
+        return peer
+    }
+
+    func allPeers() -> [TrustedPeer] { Array(peers.values) }
+    func add(_ peer: TrustedPeer) { peers[peer.id] = peer }
+    func removePeer(withId id: String) { peers[id] = nil }
+    func removeAll() { peers.removeAll() }
 }
