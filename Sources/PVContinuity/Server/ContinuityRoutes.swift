@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 import Foundation
+import PVLibraryMetadata
 
 /// Route paths for the continuity API, shared by server and client so the two
 /// can never drift.
@@ -94,5 +95,59 @@ public enum ContinuityRoutes {
             URLQueryItem(name: filePathQueryKey, value: relativePath)
         ]
         return components?.url ?? base
+    }
+}
+
+extension ContinuityRoutes {
+    public static let libraryEditsAuthStart = "/api/continuity/library/edits/auth/start"
+    public static let libraryEditsAuthComplete = "/api/continuity/library/edits/auth/complete"
+    public static let libraryEditsManifest = "/api/continuity/library/edits/manifest"
+    public static let libraryEditsDocument = "/api/continuity/library/edits/document"
+    public static let libraryEditsMerge = "/api/continuity/library/edits/merge"
+
+    public enum LibraryEditsURLError: Error, Equatable, Sendable {
+        case invalidCursor, invalidLimit, invalidIdentity, invalidURL
+    }
+
+    public static func libraryEditsAuthStartURL(base: URL) -> URL {
+        base.appendingPathComponent(libraryEditsAuthStart)
+    }
+
+    public static func libraryEditsAuthCompleteURL(base: URL) -> URL {
+        base.appendingPathComponent(libraryEditsAuthComplete)
+    }
+
+    public static func libraryEditsMergeURL(base: URL) -> URL {
+        base.appendingPathComponent(libraryEditsMerge)
+    }
+
+    /// Sign the decoded semantic query using `ContinuityLibraryEditsAuthMath`.
+    /// Credentials never belong in these query items.
+    public static func libraryEditsManifestURL(base: URL, after: String?, limit: Int) throws -> URL {
+        guard (1...128).contains(limit) else { throw LibraryEditsURLError.invalidLimit }
+        var query: [URLQueryItem] = []
+        if let after {
+            guard ContinuityLibraryEditsCursor.parse(after) != nil else { throw LibraryEditsURLError.invalidCursor }
+            query.append(URLQueryItem(name: "after", value: after))
+        }
+        query.append(URLQueryItem(name: "limit", value: String(limit)))
+        return try libraryEditsURL(base: base, path: libraryEditsManifest, query: query)
+    }
+
+    public static func libraryEditsDocumentURL(base: URL, identity: String) throws -> URL {
+        guard LibraryMetadataStore.Identity.parseCanonical(identity) != nil else {
+            throw LibraryEditsURLError.invalidIdentity
+        }
+        return try libraryEditsURL(base: base, path: libraryEditsDocument,
+                                   query: [URLQueryItem(name: "identity", value: identity)])
+    }
+
+    private static func libraryEditsURL(base: URL, path: String, query: [URLQueryItem]) throws -> URL {
+        guard var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false) else {
+            throw LibraryEditsURLError.invalidURL
+        }
+        components.queryItems = query
+        guard let url = components.url else { throw LibraryEditsURLError.invalidURL }
+        return url
     }
 }

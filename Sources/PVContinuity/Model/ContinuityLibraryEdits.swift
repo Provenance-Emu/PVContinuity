@@ -5,6 +5,8 @@
 /// Capability advertisement does not confer permission to exchange edits.
 public enum ContinuityLibraryEdits {
     public static let currentVersion = 1
+    public static let nonceHeader = "X-ICube-Edits-Nonce"
+    public static let signatureHeader = "X-ICube-Edits-Signature"
 }
 
 /// Explicit metadata consent, independent of ROM permissions and pairing.

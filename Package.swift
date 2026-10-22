@@ -17,14 +17,16 @@ let package = Package(
         // The route registry lives on the app's existing HTTP server; this
         // package registers against it rather than defining a parallel
         // request/response type family and an adapter to translate between them.
-        .package(url: "https://github.com/Provenance-Emu/PVWebServer.git", from: "1.0.0")
+        .package(url: "https://github.com/Provenance-Emu/PVWebServer.git", from: "1.0.0"),
+        .package(url: "https://github.com/Provenance-Emu/PVCloudSync.git", from: "1.1.0")
     ],
     targets: [
         .target(
             name: "PVContinuity",
             dependencies: [
                 .product(name: "PVSyncRules", package: "PVSyncRules"),
-                .product(name: "PVWebServer", package: "PVWebServer")
+                .product(name: "PVWebServer", package: "PVWebServer"),
+                .product(name: "PVLibraryMetadata", package: "PVCloudSync")
             ]
         ),
         .target(
