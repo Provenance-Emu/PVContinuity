@@ -138,6 +138,24 @@ final class LibraryServerTests: XCTestCase {
         ]))
     }
 
+    func testFindFiltersTheAuthorizedCatalogueBySystemAndName() async throws {
+        let fixture = await makeFixture()
+        let token = try await authenticate(fixture)
+        let path = ContinuityRoutes.libraryFind
+        let query = ["system": "com.provenance.gamecube", "names": "melee"]
+        let unauthorized = await fixture.registrar.send(method: "GET", path: path, query: query)
+        XCTAssertEqual(unauthorized?.status, 401)
+        let match = try require(await fixture.registrar.send(
+            method: "GET", path: path, query: query, headers: authHeaders(token)
+        ))
+        XCTAssertEqual(match.status, 200)
+        XCTAssertEqual(try decode(ContinuityLibraryCatalog.self, match).entries.map(\.game.displayName), ["Melee"])
+        let miss = try require(await fixture.registrar.send(
+            method: "GET", path: path, query: ["system": "com.provenance.wii", "names": "melee"], headers: authHeaders(token)
+        ))
+        XCTAssertTrue(try decode(ContinuityLibraryCatalog.self, miss).entries.isEmpty)
+    }
+
     func testActivateIsIdempotent() async throws {
         let fixture = await makeFixture()
         let before = fixture.registrar.registrations.count

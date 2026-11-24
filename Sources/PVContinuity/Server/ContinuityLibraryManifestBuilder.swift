@@ -73,10 +73,15 @@ public struct ContinuityLibraryManifestBuilder: Sendable {
     /// merely never *drawn*. A peer with a hand-written HTTP client sees
     /// exactly what the app's own browser sees.
     public func catalog() async -> ContinuityLibraryCatalog {
+        await catalog(matching: { _ in true })
+    }
+
+    func catalog(matching predicate: @Sendable (ContinuityLibraryEntry) -> Bool) async -> ContinuityLibraryCatalog {
         var entries: [ContinuityLibraryEntry] = []
-        for entry in await libraryProvider.allEntries()
-        where await !libraryProvider.isExcludedFromSharing(key: entry.key) {
-            entries.append(entry)
+        for entry in await libraryProvider.allEntries() where predicate(entry) {
+            if await !libraryProvider.isExcludedFromSharing(key: entry.key) {
+                entries.append(entry)
+            }
         }
         return ContinuityLibraryCatalog(sourceDevice: sourceDevice, entries: entries)
     }
