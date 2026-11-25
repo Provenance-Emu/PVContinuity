@@ -6,7 +6,7 @@
 /// Every case is an action the app can actually take. There is deliberately no
 /// "silently do nothing" case: a handoff that cannot produce a running game
 /// produces `.failed`, with the reason, which the UI must show.
-public enum ContinuityOutcome: Sendable, Equatable {
+@frozen public enum ContinuityOutcome: Sendable, Equatable {
     /// Everything required arrived (or was already local): boot and load the
     /// pulled state.
     case proceedWithPulledState
@@ -30,13 +30,13 @@ public enum ContinuityOutcome: Sendable, Equatable {
 ///
 /// Lifted from iFly's `ContinuityFallbackMachine` with the semantics unchanged;
 /// only the descriptor types differ.
-public enum ContinuityFallbackMachine {
+@frozen public enum ContinuityFallbackMachine {
 
     /// Where in the flow the failure happened. Carried for telemetry and
     /// messaging; the ladder itself does not branch on it, because the right
     /// answer to "can this device run the game?" doesn't depend on which step
     /// was in progress when the answer became necessary.
-    public enum Stage: Sendable, Equatable, CaseIterable {
+    @frozen public enum Stage: Sendable, Equatable, CaseIterable {
         case fetchingManifest
         case minting
         case pulling
@@ -44,7 +44,7 @@ public enum ContinuityFallbackMachine {
     }
 
     /// What the receiving device can do on its own, before anything was pulled.
-    public enum LocalCapability: Sendable, Equatable {
+    @frozen public enum LocalCapability: Sendable, Equatable {
         /// The game is present locally and bootable.
         case gameAvailable(hasLocalSaveState: Bool)
         case gameMissing

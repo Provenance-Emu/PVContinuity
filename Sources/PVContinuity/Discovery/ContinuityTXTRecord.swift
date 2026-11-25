@@ -8,7 +8,7 @@ import Foundation
 /// Keys are terse because each TXT string caps at 255 bytes. Base URLs ride
 /// along explicitly (`u0`, `u1`, …) rather than being resolved from the
 /// endpoint, so a browser can offer a peer without opening a connection first.
-public enum ContinuityTXTRecord {
+@frozen public enum ContinuityTXTRecord {
     private enum Key {
         static let version = "v"
         static let sessionId = "sid"

@@ -30,7 +30,7 @@ import PVSyncRules
 ///
 /// So: user data goes through `SyncClassifier`; the game file is added
 /// deliberately, once, by whoever built the manifest. Nothing else may be.
-public enum ContinuityFileKind: String, Codable, Hashable, Sendable, CaseIterable {
+@frozen public enum ContinuityFileKind: String, Codable, Hashable, Sendable, CaseIterable {
     /// The disc image itself. Never produced by `SyncClassifier` — see above.
     case gameFile
 

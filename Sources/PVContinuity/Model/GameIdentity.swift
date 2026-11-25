@@ -5,7 +5,7 @@ import Foundation
 
 /// How a remote identity was matched against a local library entry, strongest
 /// first. The ordering of the cases IS the ladder.
-public enum IdentityMatchStrength: Int, Sendable, Codable, Comparable {
+@frozen public enum IdentityMatchStrength: Int, Sendable, Codable, Comparable {
     /// Same six-character game ID, same disc, same revision. Byte-for-byte the
     /// same release as far as the emulator is concerned — a save state from one
     /// will load on the other.

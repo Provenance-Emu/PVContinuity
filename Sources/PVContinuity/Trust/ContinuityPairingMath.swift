@@ -27,7 +27,7 @@ import Foundation
 /// stated in the pairing and settings UI rather than left for a user to
 /// discover. It is not something to "fix later by adding a token" — a token
 /// changes who may ask, never who may read. Closing it means TLS.
-public enum ContinuityPairingMath {
+@frozen public enum ContinuityPairingMath {
 
     /// Uniformly random 6-digit, zero-padded display code.
     public static func makePairingCode() -> String {
