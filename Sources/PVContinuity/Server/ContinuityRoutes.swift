@@ -5,7 +5,7 @@ import Foundation
 
 /// Route paths for the continuity API, shared by server and client so the two
 /// can never drift.
-public enum ContinuityRoutes {
+@frozen public enum ContinuityRoutes {
     // MARK: Handoff session
     public static let manifest = "/api/continuity/manifest"
     public static let mint = "/api/continuity/mint"

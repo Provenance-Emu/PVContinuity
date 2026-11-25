@@ -22,7 +22,7 @@
 ///
 /// These constants live here now because the identifiers are shared with the
 /// Info.plist `UTExportedTypeDeclarations` entry and must not be spelled twice.
-public enum ContinuityPackage {
+@frozen public enum ContinuityPackage {
     public static let fileExtension = "icubepkg"
     /// Exported UTI. Must match the app's `UTExportedTypeDeclarations`.
     public static let typeIdentifier = "com.joemattiello.icube.package"

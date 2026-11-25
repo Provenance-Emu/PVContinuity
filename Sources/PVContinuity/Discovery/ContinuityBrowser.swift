@@ -9,7 +9,7 @@ import Network
 /// Must be listed in the app's `NSBonjourServices` Info.plist array — on
 /// **both** `Info.plist` and `Info-TV.plist` — or `NWBrowser` finds nothing and
 /// `NetService` publishes nothing, with no error either way.
-public enum ContinuityService {
+@frozen public enum ContinuityService {
     public static let type = "_icube-continuity._tcp"
 }
 

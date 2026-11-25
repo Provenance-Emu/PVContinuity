@@ -107,7 +107,7 @@ public struct ContinuityLibraryCatalog: Codable, Hashable, Sendable {
 /// is **peer-scoped**: grants are per-peer, so the server has to be able to
 /// answer "who is this?" on every subsequent request, which a single shared
 /// session token structurally cannot do.
-public enum ContinuityLibraryMessages {
+@frozen public enum ContinuityLibraryMessages {
     /// Terminal success payload for `library/auth/complete`.
     public struct LibraryTokenResponse: Codable, Sendable {
         public var libraryToken: String

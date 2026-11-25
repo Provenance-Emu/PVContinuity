@@ -79,7 +79,7 @@ public protocol ContinuityLibraryPullApproving: Sendable {
 }
 
 /// What the owner chose when a peer asked to copy a game.
-public enum ContinuityLibraryPullDecision: Sendable, Equatable {
+@frozen public enum ContinuityLibraryPullDecision: Sendable, Equatable {
     /// Allow this pull only. Nothing is persisted, so the next game asks again.
     case allowOnce
     /// Allow this and everything after: persists `.everything` for the peer.

@@ -4,7 +4,7 @@
 import CryptoKit
 import Foundation
 
-public enum ContinuityHash {
+@frozen public enum ContinuityHash {
     public static func sha256Hex(of data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }

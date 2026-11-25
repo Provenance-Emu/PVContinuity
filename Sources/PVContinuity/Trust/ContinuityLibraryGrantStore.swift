@@ -9,7 +9,7 @@ import Foundation
 /// Ask-Per-Game's control point is the per-pull approval prompt, not
 /// re-consenting to every browse. Re-prompting on browse would train users to
 /// dismiss the prompt, which is exactly what makes the per-pull one worthless.
-public enum ContinuityLibraryGrant: String, Codable, Sendable, CaseIterable {
+@frozen public enum ContinuityLibraryGrant: String, Codable, Sendable, CaseIterable {
     case everything
     case askPerGame
     case denied

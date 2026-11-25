@@ -95,7 +95,7 @@ public actor MockFileProvider: ContinuityFileProviding {
 // MARK: - Save-state minter
 
 public actor MockSaveStateMinter: SaveStateMinting {
-    public enum Behavior: Sendable {
+    @frozen public enum Behavior: Sendable {
         case succeed(SaveStateDescriptor)
         case fail(ContinuityError)
     }
