@@ -6,7 +6,7 @@ import PackageDescription
 // `main` always builds from source. The release workflow fills this in on the tagged
 // commit only, so it stays `nil` on every branch.
 // Set PV_BUILD_FROM_SOURCE=1 to build a tagged version from source instead.
-let binaryRelease: (version: String, checksums: [String: String])? = nil
+let binaryRelease: (version: String, checksums: [String: String])? = ("1.0.3", ["PVContinuity": "34db6e434e7228a3f54b2b991ab94bf26c3ae9d62f4b6ea75c82b3e49f92cf9b", "PVContinuityTesting": "f850021d2e189a6b4bc17872abd44bb29c2d48539e94eafc4c7352cebbc51046"])
 
 let environment = ProcessInfo.processInfo.environment
 let buildFromSource = binaryRelease == nil || environment["PV_BUILD_FROM_SOURCE"] != nil
