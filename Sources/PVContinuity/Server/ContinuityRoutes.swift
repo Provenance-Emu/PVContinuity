@@ -39,6 +39,7 @@ import Foundation
     public static let libraryAuthComplete = "/api/continuity/library/auth/complete"
     /// The shared game list. GET, bearer library token.
     public static let libraryCatalog = "/api/continuity/library/catalog"
+    public static let libraryFind = "/api/continuity/library/find"
     /// Cover art for one entry, as PNG bytes. GET `?key=`.
     public static let libraryArtwork = "/api/continuity/library/art"
     /// The manifest for one entry — the disc image and nothing of the owner's.

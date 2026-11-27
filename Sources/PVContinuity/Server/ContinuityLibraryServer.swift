@@ -127,6 +127,9 @@ public actor ContinuityLibraryServer {
         registrar.addAsyncHandler(forMethod: "POST", path: ContinuityRoutes.libraryAuthComplete) { [weak self] request in
             await self?.handleAuthComplete(request) ?? .error(status: 404, message: "unavailable")
         }
+        registrar.addAsyncHandler(forMethod: "GET", path: ContinuityRoutes.libraryFind) { [weak self] request in
+            await self?.handleCatalog(request, find: true) ?? .error(status: 404, message: "unavailable")
+        }
         registrar.addAsyncHandler(forMethod: "GET", path: ContinuityRoutes.libraryCatalog) { [weak self] request in
             await self?.handleCatalog(request) ?? .error(status: 404, message: "unavailable")
         }
@@ -283,13 +286,24 @@ public actor ContinuityLibraryServer {
 
     // MARK: - Browse routes
 
-    private func handleCatalog(_ request: WebRouteRequest) async -> WebRouteResponse {
+    private func handleCatalog(_ request: WebRouteRequest, find: Bool = false) async -> WebRouteResponse {
         switch await authorizedPeer(request) {
         case .denied(let denial): return denial
         case .allowed: break
         }
         do {
-            return .json(try await builder().catalog().encoded())
+            let catalog: ContinuityLibraryCatalog
+            if find {
+                guard let query = LibraryFindQuery(request.query) else { return .error(status: 400, message: "invalid lookup") }
+                catalog = await builder().catalog(matching: {
+                    let platform = $0.game.platform.lowercased()
+                    let system = platform == "gc" ? "gamecube" : platform
+                    return query.matches(system: system, md5: $0.game.md5, title: $0.game.displayName)
+                })
+            } else {
+                catalog = await builder().catalog()
+            }
+            return .json(try catalog.encoded())
         } catch {
             return .error(status: 500, message: "catalog build failed: \(error)")
         }
